@@ -1,0 +1,67 @@
+name: Run Selenium Tests
+
+on:
+  workflow_dispatch:  # Manual trigger for now
+    inputs:
+      browser:
+        description: 'Select the Browser'
+        required: true
+        default: 'chrome'
+        type: choice
+        options:
+          - chrome
+          - firefox
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Start Selenium Grid
+      - name: Start Selenium Grid
+        run: |
+          docker-compose -f grid.yaml up --scale ${{ inputs.browser }}=2 -d
+
+      # Wait for Grid to be ready
+      - name: Wait for Grid
+        run: |
+          count=0
+          while [ "$(curl -s http://localhost:4444/status | jq -r .value.ready)" != "true" ]; do
+            count=$((count+1))
+            echo "Attempt: $count"
+            if [ "$count" -ge 30 ]; then
+              echo "Hub not ready within 30 seconds"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Selenium Grid is up!"
+
+      # Run Tests
+      - name: Run Tests
+        run: |
+          docker-compose -f test-suites.yaml up --pull=always
+
+      # Archive Test Results
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            output/vendor-portal/emailable-report.html
+            output/flight-reservation/emailable-report.html
+
+      # Stop Grid and Test Containers
+      - name: Stop Containers
+        if: always()
+        run: |
+          docker-compose -f grid.yaml down
+          docker-compose -f test-suites.yaml down
