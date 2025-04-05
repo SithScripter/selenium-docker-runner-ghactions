@@ -22,9 +22,10 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
+      # Start Selenium Grid
       - name: Start Selenium Grid
         run: |
-          docker-compose -f grid.yaml up --scale $BROWSER=2 -d
+          docker-compose -f grid.yaml up --scale ${{ github.event.client_payload.browser }}=2 -d
 
       - name: Wait for Grid
         run: |
