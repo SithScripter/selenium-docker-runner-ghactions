@@ -1,14 +1,23 @@
 name: Run Selenium Tests
 
 on:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: 'Select the Browser'
+        required: true
+        default: 'chrome'
+        type: choice
+        options:
+          - chrome
+          - firefox
   repository_dispatch:
-    types: [run-tests]
+    types:
+      - run-selenium-tests
 
 jobs:
   run-tests:
     runs-on: ubuntu-latest
-    env:
-      BROWSER: ${{ github.event.client_payload.browser }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -22,10 +31,9 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
-      # Start Selenium Grid
       - name: Start Selenium Grid
         run: |
-          docker-compose -f grid.yaml up --scale $BROWSER=2 -d
+          docker-compose -f grid.yaml up --scale ${{ github.event.inputs.browser || github.event.client_payload.browser }}=2 -d
 
       - name: Wait for Grid
         run: |
